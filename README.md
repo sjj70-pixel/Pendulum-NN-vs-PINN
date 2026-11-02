@@ -41,7 +41,7 @@ $$
 \mathcal L_{\mathrm{physics}} = \frac{1}{N_c}\sum_{i=1}^{N_c}\left(\hat\theta''(t_i)+\frac{g}{L}\sin\hat\theta(t_i)\right)^2.
 $$
 
-The derivatives are obtained using PyTorch automatic differentiation. The experiment uses 200 fixed collocation points distributed across **the entire interval** \([0,12]\) seconds.
+The derivatives are obtained using PyTorch automatic differentiation. The experiment uses 200 fixed collocation points distributed across **the entire interval** $[0,12]$ seconds.
 
 $$
 \mathcal L_{\mathrm{PINN}} = \mathcal L_{\mathrm{data}} + \lambda_{\mathrm{IC}}\mathcal L_{\mathrm{IC}} + \lambda_{\mathrm{physics}}\mathcal L_{\mathrm{physics}}.
