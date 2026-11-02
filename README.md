@@ -98,6 +98,15 @@ Five-seed results (mean ± sample standard deviation):
 
 *Training RMSE is computed against the noise-free numerical reference on 0–4 s, not against the noisy observations used in the loss function.*
 
+### Visual results
+
+![Predicted pendulum trajectories and absolute errors for seed 42](figures/predictions_seed_42.png)
+
+![Mean extrapolation RMSE across the five seeds, shown on a logarithmic scale](figures/extrapolation_rmse.png)
+
+The trajectory figure shows the NN's poor prediction beyond the observed data and the close agreement of the two PINN trajectories over the physics-constrained interval. The logarithmic RMSE chart makes the difference between the two PINN variants visible alongside the much larger NN error.
+
+
 Across these five seeds, adding the energy penalty:
 
 - Reduced mean extrapolation RMSE by approximately **78%** compared with the PINN without energy loss.
@@ -115,21 +124,52 @@ These are preliminary results from five seeds. The PINN without energy can also 
 | `train_nn.py` | Trains the standard NN |
 | `train_pinn.py` | Trains PINNs with configurable physics and energy-loss weights |
 | `train_pinn_gradnorm.py` | Optional experimental adaptive loss weighting (GradNorm) |
-| `main.py` | Runs multi-seed comparisons, evaluates predictions, plots results, and writes CSV output |
-| `tune_pinn.py` | Optional hyperparameter-tuning experiments |
+| `main.py` | Provides single-seed Show Mode and multi-seed Run Mode, with plotting, evaluation, and optional CSV output |
+| `tune_pinn.py` | Optional hyperparameter-tuning experiments (if present) |
 
 ## Running the experiment
 
-Requires Python and the packages `numpy`, `scipy`, `torch`, and `matplotlib`.
+Requires Python and the packages listed in `requirements.txt` (`numpy`, `scipy`, `torch`, and `matplotlib`).
 
 ```bash
-pip install numpy scipy torch matplotlib
+python -m pip install -r requirements.txt
 python main.py
 ```
 
-Configure the experiment in `main.py` using `SEEDS`, `T_END`, `EPOCHS`, `LAMBDA_PHYSICS`, `LAMBDA_ENERGY`, and `RUN_GRADNORM`. With `RUN_GRADNORM = False`, the main comparison includes the standard NN and the two PINN variants. GradNorm can be enabled separately.
+The optional hyperparameter tuning script also uses `optuna` (install separately if needed).
 
-The script produces trajectory and error plots, along with CSV files for individual runs, the paired energy/no-energy comparison, and summary statistics (by default `results_12s.csv`, `energy_comparison_12s.csv`, and `summary_12s.csv`). Check the filename settings before rerunning: files opened in write mode will overwrite older results.
+### Show Mode vs. Run Mode
+
+Set these options near the top of `main.py`:
+
+```python
+SHOW_MODE = True
+SHOW_SEED = 42
+SEEDS = [42, 43, 44, 45, 46]
+RUN_GRADNORM = False
+```
+
+| Setting | Show Mode (`SHOW_MODE = True`) | Run Mode (`SHOW_MODE = False`) |
+|---|---|---|
+| Seeds | Only `SHOW_SEED` (default: 42) | All seeds in `SEEDS` (default: five) |
+| Training | Trains each selected model from scratch | Trains each selected model from scratch |
+| Console output | Per-model RMSE, epochs, and time | Per-model results plus averages and standard deviations |
+| Figures | Trajectory predictions and absolute errors | Same figure for the first seed, plus mean extrapolation RMSE bar chart |
+| CSV files | **Does not create, overwrite, or append to CSVs** | Writes individual runs, paired PINN comparison, and summary statistics |
+
+**Show Mode** is useful for inspecting one seed's results without changing existing CSV files. It **does not** load a previously trained model; it retrains the models each time. **Run Mode** is intended for multi-seed comparisons and overwrites its three output CSVs when started, so save or rename old results before rerunning.
+
+With `RUN_GRADNORM = False`, both modes compare the standard NN, PINN without energy loss, and PINN with energy loss. Setting `RUN_GRADNORM = True` adds the optional adaptive-weighting model in either mode. Other configurable parameters include `T_END`, `EPOCHS`, `LAMBDA_PHYSICS`, and `LAMBDA_ENERGY`.
+
+Set `SAVE_FIGURES = True` to save figures to `figures/`. In Show Mode, the trajectory figure is saved for the selected seed without modifying CSV files. In Run Mode, the first seed's trajectory figure and the multi-seed RMSE chart are saved. Existing figure files of the same name are overwritten. The images above come from the completed five-seed experiment; to create new figures, rerun the relevant mode.
+
+In Run Mode, the default CSV files are:
+
+- `results_12s.csv`: metrics, actual trained epochs, convergence status, training time, and loss weights for every model/seed, appended after each training run.
+- `energy_comparison_12s.csv`: per-seed accuracy, epochs, time differences, and convergence status for PINNs with and without energy loss, appended after each seed.
+- `summary_12s.csv`: final means, standard deviations, and counts of converged runs, saved after all runs finish.
+
+A `Converged` value of `True` means the method met its prescribed loss thresholds; `False` means it reached its epoch budget without meeting them. An empty value means the optional trainer did not report convergence. The reported convergence is based on training diagnostics, **not** the ground-truth prediction RMSE.
 
 ## Possible extensions
 

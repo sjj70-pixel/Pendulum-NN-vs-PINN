@@ -84,7 +84,7 @@ def train_nn(model, t_train, theta_train, epochs=10000, lr=1e-3, lambda_ic=1.0):
                 history["converged"] = True
                 print(f"Converged at epoch {epoch + 1}")
                 break
-
+    history["epochs_trained"] = len(history["total"])
     model.eval()
 
     return model, history

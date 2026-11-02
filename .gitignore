@@ -1,3 +1,23 @@
-# Python cache
+# Python caches
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments / local settings
+.venv/
+venv/
+.env
+.vscode/
+
+# Experiment scratch files and model checkpoints
+*.db
+*.db-shm
+*.db-wal
+checkpoints/
+*.pt
+*.pth
+
+# OS artifacts
+.DS_Store
+Thumbs.db
