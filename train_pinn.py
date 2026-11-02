@@ -56,8 +56,11 @@ def train_pinn(
         loss_ic += omega0_pred.square().mean()
 
         # 3. Physics loss
+        stage = min(epoch // 2000, 4)
+        physics_end = 4.0 + 2.0 * stage
+
         t_physics = (
-            torch.linspace(0, t_end, n_collocation, dtype=dtype, device=device)
+            torch.linspace(0, physics_end, n_collocation, dtype=dtype, device=device)
             .reshape(-1, 1)
             .requires_grad_(True)
         )
