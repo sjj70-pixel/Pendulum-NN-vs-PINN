@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.ndimage import median_filter
 
 
 def train_pinn(
@@ -9,12 +12,16 @@ def train_pinn(
     t_end=12.0,
     g=9.81,
     L=1.0,
-    epochs=10000,
+    epochs=100000,
     lr=1e-3,
     lambda_physics=0.01,
     lambda_ic=1.0,
     lambda_energy=0.1,
     n_collocation=200,
+    collocation_method="fixed",
+    successful_checks=0,
+    check_interval=500,
+    required_checks=5,
 ):
     device = next(model.parameters()).device
     dtype = next(model.parameters()).dtype
@@ -56,14 +63,18 @@ def train_pinn(
         loss_ic += omega0_pred.square().mean()
 
         # 3. Physics loss
-        stage = min(epoch // 2000, 4)
-        physics_end = 4.0 + 2.0 * stage
+        if collocation_method == "fixed":
+            t_physics = torch.linspace(
+                0, t_end, n_collocation, dtype=dtype, device=device
+            ).reshape(-1, 1)
 
-        t_physics = (
-            torch.linspace(0, physics_end, n_collocation, dtype=dtype, device=device)
-            .reshape(-1, 1)
-            .requires_grad_(True)
-        )
+        elif collocation_method == "random":
+            t_physics = t_end * torch.rand(n_collocation, 1, dtype=dtype, device=device)
+
+        else:
+            raise ValueError("Unknown collocation method")
+
+        t_physics = t_physics.requires_grad_(True)
 
         theta_physics = model(t_physics)
 
@@ -106,6 +117,25 @@ def train_pinn(
             + lambda_energy * loss_energy
         )
 
+        # Check if the model has passed learning thresholds
+        if (epoch + 1) % check_interval == 0:
+
+            converged = (
+                loss_data.item() < 0.003
+                and loss_physics.item() < 0.01
+                and loss_ic.item() < 1e-4
+                and loss_energy.item() < 0.001
+            )
+
+            if converged:
+                successful_checks += 1
+            else:
+                successful_checks = 0
+
+            if successful_checks >= required_checks:
+                print(f"Converged at epoch {epoch + 1}")
+                break
+
         # 5. Backpropagation
         loss.backward()
         optimizer.step()
@@ -140,10 +170,12 @@ if __name__ == "__main__":
 
     torch.manual_seed(42)
 
-    data = generate_data()
+    data = generate_data(t_end=16)
     model = PendulumNet()
 
-    model, history = train_pinn(model, data["t_train"], data["theta_train"])
+    model, history = train_pinn(
+        model, data["t_train"], data["theta_train"], collocation_method="fixed"
+    )
 
     # Evaluate over the full 12 seconds
     t = torch.tensor(data["t_true"], dtype=torch.float32).reshape(-1, 1)
@@ -193,4 +225,19 @@ if __name__ == "__main__":
     ax.set_yscale("log")
     ax.legend()
     ax.grid(alpha=0.3)
+    plt.show()
+
+    plt.figure(figsize=(10, 5))
+
+    for key in ["data", "physics", "energy"]:
+        values = np.array(history[key])
+
+        smooth = median_filter(values, size=501, mode="nearest")
+
+    plt.semilogy(smooth, label=key)
+
+    plt.xlabel("Epoch")
+    plt.ylabel("Smoothed loss")
+    plt.legend()
+    plt.grid(alpha=0.3)
     plt.show()

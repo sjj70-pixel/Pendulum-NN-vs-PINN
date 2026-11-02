@@ -15,7 +15,8 @@ from train_pinn_gradnorm import train_pinn_gradnorm
 # Experiment settings
 # ------------------------------------
 
-SEEDS = [42, 43, 44, 45, 46]
+# SEEDS = [42, 43, 44, 45, 46]
+SEEDS = [42]
 
 T_END = 12.0
 TRAIN_END = 4.0
