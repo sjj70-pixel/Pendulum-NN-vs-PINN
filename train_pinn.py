@@ -118,6 +118,10 @@ def train_pinn(
             + lambda_energy * loss_energy
         )
 
+        # 5. Backpropagation
+        loss.backward()
+        optimizer.step()
+
         # Record loss history
         history["total"].append(loss.item())
         history["data"].append(loss_data.item())
@@ -144,10 +148,6 @@ def train_pinn(
                 history["converged"] = True
                 print(f"Converged at epoch {epoch + 1}")
                 break
-
-        # 5. Backpropagation
-        loss.backward()
-        optimizer.step()
 
         if (epoch + 1) % 500 == 0:
             print(
