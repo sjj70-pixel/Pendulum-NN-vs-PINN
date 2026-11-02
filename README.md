@@ -125,7 +125,7 @@ These are preliminary results from five seeds. The PINN without energy can also 
 | `train_pinn.py` | Trains PINNs with configurable physics and energy-loss weights |
 | `train_pinn_gradnorm.py` | Optional experimental adaptive loss weighting (GradNorm) |
 | `main.py` | Provides single-seed Show Mode and multi-seed Run Mode, with plotting, evaluation, and optional CSV output |
-| `tune_pinn.py` | Optional hyperparameter-tuning experiments (if present) |
+| `tune_pinn.py` | Optional hyperparameter-tuning experiments |
 
 ## Running the experiment
 
