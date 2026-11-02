@@ -170,7 +170,7 @@ if __name__ == "__main__":
 
     torch.manual_seed(42)
 
-    data = generate_data(t_end=16)
+    data = generate_data(t_end=12)
     model = PendulumNet()
 
     model, history = train_pinn(
