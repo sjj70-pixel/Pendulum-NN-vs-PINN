@@ -37,6 +37,7 @@ def train_pinn(
     mse = nn.MSELoss()
 
     history = {"total": [], "data": [], "physics": [], "ic": [], "energy": []}
+    history["converged"] = False
 
     model.train()
 
@@ -117,6 +118,13 @@ def train_pinn(
             + lambda_energy * loss_energy
         )
 
+        # Record loss history
+        history["total"].append(loss.item())
+        history["data"].append(loss_data.item())
+        history["physics"].append(loss_physics.item())
+        history["ic"].append(loss_ic.item())
+        history["energy"].append(loss_energy.item())
+
         # Check if the model has passed learning thresholds
         if (epoch + 1) % check_interval == 0:
 
@@ -133,19 +141,13 @@ def train_pinn(
                 successful_checks = 0
 
             if successful_checks >= required_checks:
+                history["converged"] = True
                 print(f"Converged at epoch {epoch + 1}")
                 break
 
         # 5. Backpropagation
         loss.backward()
         optimizer.step()
-
-        # Record loss history
-        history["total"].append(loss.item())
-        history["data"].append(loss_data.item())
-        history["physics"].append(loss_physics.item())
-        history["ic"].append(loss_ic.item())
-        history["energy"].append(loss_energy.item())
 
         if (epoch + 1) % 500 == 0:
             print(
@@ -156,7 +158,7 @@ def train_pinn(
                 f"IC={loss_ic.item():.6f}"
                 f"Energy={loss_energy.item():.6f}"
             )
-
+    history["epochs_trained"] = len(history["total"])
     model.eval()
 
     return model, history

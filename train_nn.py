@@ -22,6 +22,7 @@ def train_nn(model, t_train, theta_train, epochs=10000, lr=1e-3, lambda_ic=1.0):
 
     # Store training history
     history = {"total": [], "data": [], "ic": []}
+    history["converged"] = False
 
     check_interval = 500
     required_checks = 5
@@ -80,7 +81,8 @@ def train_nn(model, t_train, theta_train, epochs=10000, lr=1e-3, lambda_ic=1.0):
                 successful_checks = 0
 
             if successful_checks >= required_checks:
-                print(f"NN converged at epoch {epoch + 1}")
+                history["converged"] = True
+                print(f"Converged at epoch {epoch + 1}")
                 break
 
     model.eval()
