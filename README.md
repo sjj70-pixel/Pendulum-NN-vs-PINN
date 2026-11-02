@@ -8,66 +8,66 @@ The central question is whether incorporating the governing differential equatio
 
 We model an ideal, undamped pendulum using
 
-\[
+$$
 \theta''(t) + \frac{g}{L}\sin\theta(t) = 0,
-\]
+$$
 
 with parameters and initial conditions
 
-- Gravitational acceleration: \(g = 9.81\,\mathrm{m/s^2}\)
-- Pendulum length: \(L = 1\,\mathrm{m}\)
-- Initial angle: \(\theta(0) = 1\,\mathrm{rad}\)
-- Initial angular velocity: \(\theta'(0) = 0\)
+- Gravitational acceleration: $g = 9.81\,\mathrm{m/s^2}$
+- Pendulum length: $L = 1\,\mathrm{m}$
+- Initial angle: $\theta(0) = 1\,\mathrm{rad}$
+- Initial angular velocity: $\theta'(0) = 0$
 
-A high-accuracy numerical solution from SciPy's `solve_ivp` provides the reference trajectory. The training data consist of 50 angle observations over \(t\in[0,4]\) seconds with independent Gaussian noise (standard deviation 0.05 rad). Models are evaluated against the noise-free reference trajectory.
+A high-accuracy numerical solution from SciPy's `solve_ivp` provides the reference trajectory. The training data consist of 50 angle observations over $t\in[0,4]$ seconds with independent Gaussian noise (standard deviation 0.05 rad). Models are evaluated against the noise-free reference trajectory.
 
 ## Models
 
-All three models use the same fully connected neural network architecture: three hidden layers of 64 neurons, `tanh` activations, and one scalar output \(\hat\theta(t)\). Training uses Adam with a learning rate of \(10^{-3}\). For each random seed, the models start from identical network weights and use the same noisy observations.
+All three models use the same fully connected neural network architecture: three hidden layers of 64 neurons, `tanh` activations, and one scalar output $\hat\theta(t)$. Training uses Adam with a learning rate of $10^{-3}$. For each random seed, the models start from identical network weights and use the same noisy observations.
 
 ### 1. Standard NN
 
 The ordinary NN minimizes the observation error and the initial-condition error:
 
-\[
+$$
 \mathcal L_{\mathrm{NN}} = \mathcal L_{\mathrm{data}} + \lambda_{\mathrm{IC}}\mathcal L_{\mathrm{IC}}.
-\]
+$$
 
 ### 2. PINN without energy loss
 
 The PINN additionally penalizes violations of the pendulum equation:
 
-\[
+$$
 \mathcal L_{\mathrm{physics}} = \frac{1}{N_c}\sum_{i=1}^{N_c}\left(\hat\theta''(t_i)+\frac{g}{L}\sin\hat\theta(t_i)\right)^2.
-\]
+$$
 
 The derivatives are obtained using PyTorch automatic differentiation. The experiment uses 200 fixed collocation points distributed across **the entire interval** \([0,12]\) seconds.
 
-\[
+$$
 \mathcal L_{\mathrm{PINN}} = \mathcal L_{\mathrm{data}} + \lambda_{\mathrm{IC}}\mathcal L_{\mathrm{IC}} + \lambda_{\mathrm{physics}}\mathcal L_{\mathrm{physics}}.
-\]
+$$
 
 ### 3. PINN with energy loss
 
 The third model adds a penalty for deviations from the pendulum's initial mechanical energy:
 
-\[
+$$
 E(t) = \frac12 L^2\hat\theta'(t)^2 + gL\bigl(1-\cos\hat\theta(t)\bigr),
 \qquad
 E_0 = gL\bigl(1-\cos(1)\bigr).
-\]
+$$
 
-\[
+$$
 \mathcal L_{\mathrm{energy}} = \frac{1}{N_c}\sum_{i=1}^{N_c}\left(\frac{E(t_i)-E_0}{E_0}\right)^2.
-\]
+$$
 
 The loss is
 
-\[
+$$
 \mathcal L_{\mathrm{PINN+E}} = \mathcal L_{\mathrm{PINN}} + \lambda_{\mathrm{energy}}\mathcal L_{\mathrm{energy}}.
-\]
+$$
 
-The weights used are \(\lambda_{\mathrm{IC}}=1\), \(\lambda_{\mathrm{physics}}=0.01\), and, when enabled, \(\lambda_{\mathrm{energy}}=0.1\).
+The weights used are $\lambda_{\mathrm{IC}}=1$, $\lambda_{\mathrm{physics}}=0.01$, and, when enabled, $\lambda_{\mathrm{energy}}=0.1$.
 
 Energy conservation follows mathematically from the undamped pendulum ODE, so the added energy penalty is **redundant as a physical constraint**. Here, we test whether this extra training signal helps optimization.
 
