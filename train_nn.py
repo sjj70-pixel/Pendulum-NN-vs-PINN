@@ -23,6 +23,10 @@ def train_nn(model, t_train, theta_train, epochs=10000, lr=1e-3, lambda_ic=1.0):
     # Store training history
     history = {"total": [], "data": [], "ic": []}
 
+    check_interval = 500
+    required_checks = 5
+    successful_checks = 0
+
     model.train()
 
     for epoch in range(epochs):
@@ -57,13 +61,27 @@ def train_nn(model, t_train, theta_train, epochs=10000, lr=1e-3, lambda_ic=1.0):
         history["data"].append(loss_data.item())
         history["ic"].append(loss_ic.item())
 
-        if (epoch + 1) % 500 == 0:
+        if (epoch + 1) % check_interval == 0:
             print(
                 f"Epoch {epoch+1}: "
                 f"Total={loss.item():.6f}, "
                 f"Data={loss_data.item():.6f}, "
                 f"IC={loss_ic.item():.6f}"
             )
+
+        # Check for convergence
+        if (epoch + 1) % check_interval == 0:
+
+            converged = loss_data.item() < 0.003 and loss_ic.item() < 1e-4
+
+            if converged:
+                successful_checks += 1
+            else:
+                successful_checks = 0
+
+            if successful_checks >= required_checks:
+                print(f"NN converged at epoch {epoch + 1}")
+                break
 
     model.eval()
 

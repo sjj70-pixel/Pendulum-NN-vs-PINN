@@ -1,5 +1,6 @@
 import copy
 import time
+import csv
 
 import numpy as np
 import torch
@@ -15,8 +16,8 @@ from train_pinn_gradnorm import train_pinn_gradnorm
 # Experiment settings
 # ------------------------------------
 
-# SEEDS = [42, 43, 44, 45, 46]
-SEEDS = [42]
+SEEDS = [42, 43, 44, 45, 46]
+# SEEDS = [42]
 
 T_END = 12.0
 TRAIN_END = 4.0
@@ -24,7 +25,7 @@ N_TRAIN = 50
 N_EVAL = 1000
 NOISE_STD = 0.05
 
-EPOCHS = 10000
+EPOCHS = 100000
 LEARNING_RATE = 1e-3
 
 LAMBDA_IC = 1.0
@@ -32,7 +33,11 @@ LAMBDA_PHYSICS = 0.01
 LAMBDA_ENERGY = 0.1
 
 N_COLLOCATION = 200
-RUN_GRADNORM = True
+RUN_GRADNORM = False
+
+RESULTS_CSV = "results_12s.csv"
+COMPARISON_CSV = "energy_comparison_12s.csv"
+SUMMARY_CSV = "summary_12s.csv"
 
 
 def evaluate_model(model, data):
@@ -67,7 +72,17 @@ def main():
 
     experiments = {
         "NN": (train_nn, {"lambda_ic": LAMBDA_IC}),
-        "PINN": (
+        "PINN (no energy)": (
+            train_pinn,
+            {
+                "t_end": T_END,
+                "lambda_ic": LAMBDA_IC,
+                "lambda_physics": LAMBDA_PHYSICS,
+                "lambda_energy": 0.0,
+                "n_collocation": N_COLLOCATION,
+            },
+        ),
+        "PINN (energy)": (
             train_pinn,
             {
                 "t_end": T_END,
@@ -97,6 +112,39 @@ def main():
     # Save seed 42 predictions for visualization
     example_predictions = {}
     example_data = None
+
+    # Save to csv
+    # Initialize CSV files
+    with open(RESULTS_CSV, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                "Model",
+                "Seed",
+                "Train RMSE",
+                "Test RMSE",
+                "Epochs",
+                "Training Time (s)",
+                "Physics Weight",
+                "Energy Weight",
+            ]
+        )
+
+    with open(COMPARISON_CSV, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                "Seed",
+                "No Energy Test RMSE",
+                "With Energy Test RMSE",
+                "RMSE Improvement",
+                "No Energy Epochs",
+                "With Energy Epochs",
+                "Epochs Saved",
+                "No Energy Time (s)",
+                "With Energy Time (s)",
+            ]
+        )
 
     # ------------------------------------
     # 1. Run all seeds
@@ -143,24 +191,73 @@ def main():
 
             prediction, train_rmse, test_rmse = evaluate_model(model, data)
 
+            # Actual epochs trained, including early stopping
+            epochs_run = len(history["total"])
+
             results[name].append(
                 {
                     "seed": seed,
                     "train_rmse": train_rmse,
                     "test_rmse": test_rmse,
+                    "epochs": epochs_run,
                     "time": elapsed,
                 }
             )
+
+            # Fixed loss weights, if applicable
+            physics_weight = kwargs.get("lambda_physics", "")
+            energy_weight = kwargs.get("lambda_energy", "")
+
+            # Save immediately after each completed model
+            with open(RESULTS_CSV, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    [
+                        name,
+                        seed,
+                        train_rmse,
+                        test_rmse,
+                        epochs_run,
+                        elapsed,
+                        physics_weight,
+                        energy_weight,
+                    ]
+                )
 
             print(
                 f"{name}: "
                 f"Train RMSE={train_rmse:.6f}, "
                 f"Test RMSE={test_rmse:.6f}, "
+                f"Epochs={epochs_run}, "
                 f"Time={elapsed:.2f}s"
             )
 
             if seed == SEEDS[0]:
                 example_predictions[name] = prediction
+
+        # Compare PINN with and without energy
+        no_energy = results["PINN (no energy)"][-1]
+        with_energy = results["PINN (energy)"][-1]
+
+        rmse_improvement = no_energy["test_rmse"] - with_energy["test_rmse"]
+
+        epochs_saved = no_energy["epochs"] - with_energy["epochs"]
+
+        with open(COMPARISON_CSV, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                [
+                    seed,
+                    no_energy["test_rmse"],
+                    with_energy["test_rmse"],
+                    rmse_improvement,
+                    no_energy["epochs"],
+                    with_energy["epochs"],
+                    epochs_saved,
+                    no_energy["time"],
+                    with_energy["time"],
+                ]
+            )
 
         if seed == SEEDS[0]:
             example_data = data
@@ -205,6 +302,45 @@ def main():
         time_text = f"{s['time_mean']:.1f} ± {s['time_std']:.1f}"
 
         print(f"{name:<18}" f"{train_text:>20}" f"{test_text:>20}" f"{time_text:>20}")
+
+    with open(SUMMARY_CSV, "w", newline="") as f:
+        writer = csv.writer(f)
+
+        writer.writerow(
+            [
+                "Model",
+                "Mean Train RMSE",
+                "Std Train RMSE",
+                "Mean Test RMSE",
+                "Std Test RMSE",
+                "Mean Epochs",
+                "Std Epochs",
+                "Mean Time (s)",
+                "Std Time (s)",
+            ]
+        )
+
+        for name, runs in results.items():
+            train = np.array([r["train_rmse"] for r in runs])
+            test = np.array([r["test_rmse"] for r in runs])
+            epochs = np.array([r["epochs"] for r in runs])
+            times = np.array([r["time"] for r in runs])
+
+            ddof = 1 if len(runs) > 1 else 0
+
+            writer.writerow(
+                [
+                    name,
+                    train.mean(),
+                    train.std(ddof=ddof),
+                    test.mean(),
+                    test.std(ddof=ddof),
+                    epochs.mean(),
+                    epochs.std(ddof=ddof),
+                    times.mean(),
+                    times.std(ddof=ddof),
+                ]
+            )
 
     # ------------------------------------
     # 3. Plot predictions for first seed
